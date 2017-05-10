@@ -42,6 +42,7 @@ int main() {
         if(input == "exit") {
             return 0;
         }
+        
         // if(input == "") {
         //     //jump to top of loop
         //     cout << "empty input" << endl;
