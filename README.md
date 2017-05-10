@@ -129,10 +129,10 @@ Bugs
 <li>The array of command and arguments used in the tokenize function is hard 
  coded to be of lenght 1024, and is not dynamically allocated. This was 
  done with the idea that the user will most likely not need an array of 
- command and arguments longer than 1024 elements.<li>
+ command and arguments longer than 1024 elements.</li>
  <li>When tested using scripts an extra dollar sign ($) is printed
  to the terminal.  This does not occur if the program is run normally with a 
- user manually entering the input instead of through the use of scripts.<li>
+ user manually entering the input instead of through the use of scripts.</li>
 
  
 <li>The code was tested on the following commands:
@@ -143,5 +143,5 @@ Bugs
 <li>rm</li>
 <li>rmdir</li>
 </ul>
-<li>
+</li>
 </ul>
