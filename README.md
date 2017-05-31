@@ -36,11 +36,15 @@ Summary / Intro
 </h2>
 
 When executed, this program simulate the basic commands of the bash terminal 
-using the fork(), execvp(), and wait()/waitpid() sys() calls in C++. It begins
-by prompting the user with the usual '$' prompt to enter commands. It then 
-takes in arguments from the user and exectutes them in a left-to-right fashion.
+using the fork(), execvp(), and wait()/waitpid() sys() calls in C++. In 
+addition, it is able to recognize precedence operations created by using
+parentheses in command arguments. It also implements the 'test' function that
+is typically utilized in the terminal to verify if path file/directories exist. 
+It begins by prompting the user with the usual '$' prompt to enter commands. 
+It then takes in arguments from the user and exectutes them in a left-to-right 
+fashion.
 
-To exit the terminal, the user simply types 'exit' to revert back tot he main
+To exit the terminal, the user simply types 'exit' to revert back to the main
 terminal.
     
 <h2>
@@ -72,20 +76,41 @@ Parse is constucted with a single string that contains the commands it
 is to parse through and assigns it to it's userInput string.The Parse class
 has 1 function called 'processText'.  The 'processText' function is void
 and takes in no arguments.  It works on string contained in it's userInput.
-It first checks if the string has a ';' on the very end.  If it does, it
-is removed from the string.  Next it looks for the last connector (;, ||,
-&&) in the string.  When found it saves the connector's index and it's 
-type (if it's ;, ||, &&).  It uses this information to then split the
-string into two strings called leftText and rightText. LeftText contains
-everything to the left of the connector while rightText contains everything
-to it's right.  'processText' then creates a point to an And, Or, or Both
-object based off the connector it found and constructs it using both the
-leftText and rightText as its parameters. It then will call the 'execute'
-on the newly created pointer object.  Additionally if Parse is constructed
-with a single command it will bypass all of the above and instead 
+It first checks for parentheses in the string and keeps track of the number of 
+open '(' and closed ')' parentheses. This is done not only to be able to
+recognize sub-arguments within a string, but also as a check to verify that
+arguments are being passed/entered correctly. It then checks if the string has 
+a ';' on the very end.  If it does, it is removed from the string.  Next it 
+looks for the last connector (;, ||, &&) in the string.  When found it saves 
+the connector's index and it's type (if it's ;, ||, &&).  It uses this 
+information to then split the string into two strings called leftText and 
+rightText. LeftText contains everything to the left of the connector while 
+rightText contains everything to it's right. 'processText' then creates a point 
+to an And, Or, or Both object based off the connector it found and constructs 
+it using both the leftText and rightText as its parameters. It then will call 
+the 'execute' on the newly created pointer object. Additionally if Parse is 
+constructed with a single command it will bypass all of the above and instead 
 immediately create a Cmd pointer called 'c' that points to a Cmd object that
 is constructed with that singular command.  It then calls 'tokenize' and
-'execute' on pointer object c.
+'execute' on pointer object c. An additional function was added to parse to
+verify if a path exists as a regular file or a directory when the 'test' 
+function (or it's equivalent brackets '[ ]') is called. Prior to execute being
+called, it verifies if tokenized arguments have the 'test' command or their
+equivalent brackets. If they exist, it then checks for the flags required to
+check if a path exists ('e' flag), if the path exists and is a regular file
+('f' flag), and if the path exists and is a directory ('d' flag). By default, 
+if a flag is not entered, the 'e' flag is implemented. Once this flag is 
+verified, it utilzes the stat() function along with the S_ISREG and S_ISDIR
+functions to verify the path exists as directed above. It then returns true 
+(which is '1' or above for c++) or false (which is '0' for c++) for each 
+respective case. In addtion, in prints '(True)' or '(False)' for each 
+respective case. This can then be used in combination with the other connectors 
+if requested. Note: the 'test' command in linux returns 0 for true and 1 for
+false, which is the opposite of what is required in c++. This is because the
+'test' command in linux works by using the sys calls described elsewhere in 
+this file, which require a 0 when an operation executed without error and a 
+non-zero when an error occurred. While in c++, to verify that a path exists
+using created 'test' function, true is 1 and false is 0.
 
 <h3>Cmd:</h3>
 The Cmd class has two functions, 'tokenize' and 'execute'. Tokenize is

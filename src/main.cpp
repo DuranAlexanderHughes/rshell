@@ -31,6 +31,7 @@ int main() {
     string input = "";
     int poundSignIndex = -1;
     
+
     cout << "$ ";
     
     while(getline(cin,input)) {
@@ -69,6 +70,7 @@ int main() {
         //c->execute();
         //cout << c->successCheck() << endl;
         
+
         //print prompt
         cout << "$ ";
         

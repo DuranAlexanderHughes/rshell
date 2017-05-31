@@ -34,6 +34,10 @@
 #include <stdlib.h>
 #include <cstdlib>
 
+// #include <sys/types.h>
+#include <sys/stat.h>
+// #include <unistd.h>
+
 using namespace std;
 
 
@@ -61,6 +65,7 @@ class Parse : public Base {
         ~Parse();
         Parse( string input );
         void processText();
+        bool pathFinder(const char* path, char flg);
     
     protected:
         
