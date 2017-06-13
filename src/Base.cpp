@@ -34,6 +34,10 @@
 #include <cstdlib>
 
 // #include <sys/types.h>
+// #include <sys/stat.h>
+#include <fcntl.h>
+
+// #include <sys/types.h>
 #include <sys/stat.h>
 // #include <unistd.h>
 
@@ -41,6 +45,8 @@
 #include <algorithm>
 
 using namespace std;
+
+bool run_permission = true;
 
 
 // set the success flag of left collection
@@ -132,6 +138,7 @@ bool Parse::pathFinder(const char* path, char flg) {
     
 }
 
+
 // process text function
 void Parse::processText() {
     
@@ -159,6 +166,13 @@ void Parse::processText() {
     int lFoundAnd = -1;
     string token1 = "";
     char flagg = ' ';
+    
+    int foundPipe = -1;
+    int lfoundPipe = -1;
+    int foundR1 = -1;
+    int lfoundR1 = -1;
+    int foundR2 = -1;
+    int lfoundR2 = -1;
     
     
     // get rid of any ';'s at the end of the command
@@ -228,16 +242,28 @@ void Parse::processText() {
     foundSemiColon = userInput.rfind(";");
     foundOr = userInput.rfind("||");
     foundAnd = userInput.rfind("&&");
+    
+    // look for instances of "|", ">", ">>"
+    foundPipe = userInput.rfind(" | ") + 0;
+    foundR1 = userInput.rfind(" > ") + 0;
+    foundR2 = userInput.rfind(">>");
      
     // limited look for instances of ";", "||", "&&
     if(foundParenthesis == true) {
         lFoundSemiColon = pLimitedUserInput.rfind(";");
         lFoundOr = pLimitedUserInput.rfind("||");
         lFoundAnd = pLimitedUserInput.rfind("&&");
+        
+        // look for instances of "|", ">", ">>"
+        lfoundPipe = pLimitedUserInput.rfind(" | ") + 0;
+        lfoundR1 = pLimitedUserInput.rfind(" > ") + 0;
+        lfoundR2 = pLimitedUserInput.rfind(">>");
     }
 
     // single command with no parenthesis (also looks for test syntax)
-    if(foundSemiColon == -1 && foundAnd == -1 && foundOr == -1) {
+    // added foundPipe
+    if(foundSemiColon == -1 && foundAnd == -1 && foundOr == -1 && 
+    foundPipe == -1 && foundR1 == -1 && foundR2 == -1) {
         
         // not parenthesis
         if(foundParenthesis == false) {
@@ -245,6 +271,7 @@ void Parse::processText() {
             // creates Cmd object and runs tokenize
             Cmd* c = new Cmd(userInput);
             c->tokenize();
+            
             
             // searches for test function argm index 0
             if(!strcmp(c->argm[0],"test") || !strcmp(c->argm[0],"[")  ) {
@@ -275,10 +302,33 @@ void Parse::processText() {
                     validTest = true;
                 }
             }
+            
+            
+            
             // no test syntax detected - run command normally
             else {
+                
+                // //remove '<' from userInput if the first command isn't echo
+                // if(strcmp(c->argm[0],"echo")) {
+                //     char chars[] = "<";
+                //     string tUI = userInput;
+                //     tUI.erase(remove(tUI.begin(), tUI.end(), chars[0]), tUI.end());
+                //     userInput = tUI;
+                // }
+                // else{
+                //     cout << "\n";
+                //     run_permission = false;
+                // }
+                
+                
                 if(test == false) {
-                    c->execute();
+                    if(run_permission == true) {
+                        c->execute();
+                    }
+                    else {
+                        //cout << "skipping command" << endl;
+                        run_permission = true;
+                    }
                 }
             }
             
@@ -337,17 +387,30 @@ void Parse::processText() {
             if(foundSemiColon != -1) {
                 firstConIndex = foundSemiColon;
                 firstConType = ";";
-
             }
             if(foundOr != -1 && firstConIndex < foundOr) {
                 firstConIndex = foundOr;
                 firstConType = "||";
-
             }
             if(foundAnd != -1 && firstConIndex < foundAnd) {
                 firstConIndex = foundAnd;
                 firstConType = "&&";
-
+            }
+            if(foundPipe != -1 && firstConIndex < foundPipe) {
+                firstConIndex = foundPipe;
+                firstConType = " | ";
+            }
+            if(foundR1 != -1 && firstConIndex < foundR1) {
+                if(foundSemiColon == -1 && foundAnd == -1 && foundOr == -1) {
+                    firstConIndex = foundR1;
+                    firstConType = " > ";
+                }
+            }
+            if(foundR2 != -1 && firstConIndex < foundR2) {
+                if(foundSemiColon == -1 && foundAnd == -1 && foundOr == -1) {
+                    firstConIndex = foundR2;
+                    firstConType = ">>";
+                }
             }
             
             // create left and right substrings
@@ -367,7 +430,6 @@ void Parse::processText() {
                     rightText = userInput.substr(firstConIndex + 2, rightLength);
                 }
             }
-            // if firstConType is "||" or "&&" then set rightText with extra space
             else {
                 rightText = userInput.substr(firstConIndex + 3, rightLength + 1);
             }
@@ -381,6 +443,18 @@ void Parse::processText() {
                 Or* o = new Or(leftText,rightText);
                 o->execute();
             }
+            else if(firstConType == " | ") {
+                Pipe* p = new Pipe(leftText,rightText);
+                p->execute();
+            }
+            else if(firstConType == " > ") {
+                Redirect1* r1 = new Redirect1(leftText,rightText);
+                r1->execute();
+            }
+            else if(firstConType == ">>") {
+                Redirect2* r2 = new Redirect2(leftText,rightText);
+                r2->execute();
+            }
             else {
                 And* a = new And(leftText,rightText);
                 a->execute();
@@ -391,7 +465,8 @@ void Parse::processText() {
     /////////////////////////////////////////////////////////////////////////
     
     // single command surrounded by parenthesis
-    if(lFoundSemiColon == -1 && lFoundAnd == -1 && lFoundOr == -1) {
+    if(lFoundSemiColon == -1 && lFoundAnd == -1 && lFoundOr == -1 && 
+    lfoundPipe == -1 && lfoundR1 == -1 && lfoundR2 == -1) {
         // single commands with parenthesis
         if(foundParenthesis == true) {
  
@@ -429,6 +504,22 @@ void Parse::processText() {
                 firstConIndex = foundAnd;
                 firstConType = "&&";
             }
+            if(foundPipe != -1 && firstConIndex < foundPipe) {
+                firstConIndex = foundPipe;
+                firstConType = " | ";
+            }
+            if(foundR1 != -1 && firstConIndex < foundR1) {
+                if(foundSemiColon == -1 && foundAnd == -1 && foundOr == -1) {
+                    firstConIndex = foundR1;
+                    firstConType = " > ";
+                }
+            }
+            if(foundR2 != -1 && firstConIndex < foundR2) {
+                if(foundSemiColon == -1 && foundAnd == -1 && foundOr == -1) {
+                    firstConIndex = foundR2;
+                    firstConType = ">>";
+                }
+            }
             
             // create left and right substrings
             leftText = userInput.substr(0, firstConIndex);
@@ -447,12 +538,12 @@ void Parse::processText() {
                     rightText = userInput.substr(firstConIndex + 2, rightLength);
                 }
             }
-            // if firstConType is "||" or "&&" then set rightText with extra space
+            // if firstConType is "||" or "&&" set rightText with extra space
             else {
                 rightText = userInput.substr(firstConIndex + 3, rightLength + 1);
             }
             
-            // decide which connector to call (AND, OR, BOTH) using if statements
+            // decide which connector to call (AND, OR, BOTH) with if statements
             if(firstConType == ";") {
                 Both* b = new Both(leftText,rightText);
                 b->execute();
@@ -460,6 +551,18 @@ void Parse::processText() {
             else if(firstConType == "||") {
                 Or* o = new Or(leftText,rightText);
                 o->execute();
+            }
+            else if(firstConType == " | ") {
+                Pipe* p = new Pipe(leftText,rightText);
+                p->execute();
+            }
+            else if(firstConType == " > ") {
+                Redirect1* r1 = new Redirect1(leftText,rightText);
+                r1->execute();
+            }
+            else if(firstConType == ">>") {
+                Redirect2* r2 = new Redirect2(leftText,rightText);
+                r2->execute();
             }
             else {
                 And* a = new And(leftText,rightText);
@@ -482,6 +585,22 @@ void Parse::processText() {
                 firstConIndex = lFoundAnd;
                 firstConType = "&&";
             }
+            if(lfoundPipe != -1 && firstConIndex < lfoundPipe) {
+                firstConIndex = foundPipe;
+                firstConType = " | ";
+            }
+            if(lfoundR1 != -1 && firstConIndex < lfoundR1) {
+                if(lFoundSemiColon == -1 && lFoundAnd == -1 && lFoundOr == -1) {
+                    firstConIndex = foundR1;
+                    firstConType = " > ";
+                }
+            }
+            if(lfoundR2 != -1 && firstConIndex < lfoundR2) {
+                if(lFoundSemiColon == -1 && lFoundAnd == -1 && lFoundOr == -1) {
+                    firstConIndex = foundR2;
+                    firstConType = ">>";
+                }
+            }
             
             // create left and right substrings
             leftText = userInput.substr(0, firstConIndex);
@@ -500,13 +619,13 @@ void Parse::processText() {
                     rightText = userInput.substr(firstConIndex + 2, rightLength);
                 }
             }
-            // if firstConType is "||" or "&&" then set rightText with extra space
+            // if firstConType is "||" or "&&"  set rightText with extra space
             else {
                 rightText = userInput.substr(firstConIndex + 3, rightLength + 1);
             }
             
             
-            // decide which connector to call (AND, OR, BOTH) using if statements
+            // decide which connector to call (AND, OR, BOTH) with if statements
             if(firstConType == ";") {
                 Both* b = new Both(leftText,rightText);
                 b->execute();
@@ -515,12 +634,23 @@ void Parse::processText() {
                 Or* o = new Or(leftText,rightText);
                 o->execute();
             }
+            else if(firstConType == " | ") {
+                Pipe* p = new Pipe(leftText,rightText);
+                p->execute();
+            }
+            else if(firstConType == " > ") {
+                Redirect1* r1 = new Redirect1(leftText,rightText);
+                r1->execute();
+            }
+            else if(firstConType == ">>") {
+                Redirect2* r2 = new Redirect2(leftText,rightText);
+                r2->execute();
+            }
             else {
                 And* a = new And(leftText,rightText);
                 a->execute();
             }
         }
-        
     }
 }
 
@@ -670,7 +800,6 @@ void Or::execute() {
     }
 }
 
-
 // default constructer
 And::And():Base(){}
 
@@ -696,6 +825,336 @@ void And::execute() {
         rightCommand->processText();
     }
 }
+
+// default constructer
+Pipe::Pipe():Base(){}
+
+// deconstructer
+Pipe::~Pipe() {}
+
+// constructer
+Pipe::Pipe(string left, string right) {
+    l = left;
+    r = right;
+}
+
+void Pipe::execute() {
+    
+    // Create pipe obejects with read and write ends of the pipe
+    // pipefd[1] is the write (WR) side of the pipe
+    // pipefd[0] is the read (RD) side of the pipe
+    int pipefd[2];
+    pipe(pipefd);
+    int saveStdIn;
+    int saveStdOut;
+        
+    // fork commands
+    int pid = -1;
+    pid = fork(); 
+    int returnStatus; 
+        
+    // child process.
+    if(pid == 0) { 
+        
+        // save the standard output 
+        saveStdOut = dup(1);
+        
+        // replace standard output with output end of pipe
+        dup2(pipefd[1], 1);
+
+        // close input end of pipe
+        close(pipefd[0]);
+
+        // pipe has been redirected towards the right
+        // all future output from the left will now be sent to the pipe
+        Parse * leftCommand = new Parse(l);
+        leftCommand->processText();
+        
+        // replace the standard output
+        dup2(saveStdOut, 1);
+        
+        // error codes
+        int errCode = errno;
+        exit(errCode);
+        exit(EXIT_SUCCESS);
+        
+    } 
+    // parent process.
+    else if(pid > 0) { 
+        
+       
+        
+        // Wait for the child process to exit
+        // below is same as waitpid(-1, &status, 0);
+        // wait(&returnStatus);
+        if ((pid = wait(&returnStatus)) == -1) {
+           perror("wait error");
+        }
+        else {
+            
+            // Program succeeded
+            if ((WIFEXITED(returnStatus)) && (WEXITSTATUS(returnStatus) == 0)) {
+                // setCheck() here and below
+                setCheck(true);
+                
+                // save the standard input 
+                saveStdIn = dup(0);
+                
+                // replace standard input with input end of pipe
+                dup2(pipefd[0], 0);
+        
+                // close output end of pipe
+                close(pipefd[1]);
+                
+                // pipe has been redirected towards the right
+                // all future output from the left will now be sent to the pipe
+                Parse * rightCommand = new Parse(r);
+                rightCommand->processText();
+                
+                // replace the standard input
+                dup2(saveStdIn, 0);
+                
+                                
+            }
+            // Program failed
+            else { 
+                setCheck(false);
+                //perror("execvp failed");
+            }
+        }
+            
+    } 
+    // Error with fork() calls
+    else {
+        perror("fork call failed");
+        cout << "There was an error with the fork() sys() call." << endl;
+        exit(EXIT_FAILURE); 
+    } 
+}
+
+// default constructer
+Redirect1::Redirect1():Base(){}
+
+// deconstructer
+Redirect1::~Redirect1() {}
+
+// constructer
+Redirect1::Redirect1(string left, string right) {
+    l = left;
+    r = right;
+}
+
+// execute
+void Redirect1::execute() {
+    
+    // Create obejects to save the standard input/output
+    // int saveStdIn;
+    int saveStdOut;
+    
+    int fL = r.length();
+    char * str = new char[fL+1];
+    strcpy(str, r.c_str());
+        
+    // fork commands
+    int pid = -1;
+    pid = fork(); 
+    int returnStatus; 
+        
+    // child process.
+    if(pid == 0) { 
+        
+        
+        // save the standard output 
+        saveStdOut = dup(1);
+        
+        // testing code
+        //**int file = open(fileName, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH );
+        // int file = open(str, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH );
+        
+        int file = open(str, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+        
+        if (file < 0) {
+            fprintf(stderr, "open error: %d [%s]\n", errno, strerror(errno));
+            exit(1);
+        }
+        
+        // replace standard output with file output
+        dup2(file,1);
+        close(file);
+        
+
+        // output has been redirected towards the file
+        // all future output from the left will now be sent to the file
+        Parse * leftCommand = new Parse(l);
+        leftCommand->processText();
+        
+        // replace the standard output
+        dup2(saveStdOut, 1);
+        
+        // error codes
+        int errCode = errno;
+        exit(errCode);
+        exit(EXIT_SUCCESS);
+        
+    } 
+    // parent process.
+    else if(pid > 0) { 
+
+        // Wait for the child process to exit
+        // below is same as waitpid(-1, &status, 0);
+        // wait(&returnStatus);
+        if ((pid = wait(&returnStatus)) == -1) {
+           perror("wait error");
+        }
+        else {
+            
+            // Program succeeded
+            if ((WIFEXITED(returnStatus)) && (WEXITSTATUS(returnStatus) == 0)) {
+                // setCheck() here and below
+                setCheck(true);
+
+
+                // set flag to skip right command (its a file name)
+                run_permission = false;
+                Parse * rightCommand = new Parse(r);
+                rightCommand->processText();
+                
+                // replace the standard input
+                // dup2(saveStdIn, 0);
+                
+                                
+            }
+            // Program failed
+            else { 
+                setCheck(false);
+                //perror("execvp failed");
+            }
+        }
+            
+    } 
+    // Error with fork() calls
+    else {
+        perror("fork call failed");
+        cout << "There was an error with the fork() sys() call." << endl;
+        exit(EXIT_FAILURE); 
+    } 
+    
+    
+}
+
+
+// default constructer
+Redirect2::Redirect2():Base(){}
+
+// deconstructer
+Redirect2::~Redirect2() {}
+
+// constructer
+Redirect2::Redirect2(string left, string right) {
+    l = left;
+    r = right;
+}
+
+// execute
+void Redirect2::execute() {
+    
+    // Create obejects to save the standard input/output
+    // int saveStdIn;
+    int saveStdOut;
+    
+    int fL = r.length();
+    char * str = new char[fL+1];
+    strcpy(str, r.c_str());
+        
+    // fork commands
+    int pid = -1;
+    pid = fork(); 
+    int returnStatus; 
+        
+    // child process.
+    if(pid == 0) { 
+        
+        
+        // save the standard output 
+        saveStdOut = dup(1);
+        
+        // testing code
+        // int file = open(str, O_CREAT | O_RDWR | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH );
+        
+        int file = open(str, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+        
+        
+        if (file < 0) {
+            fprintf(stderr, "open error: %d [%s]\n", errno, strerror(errno));
+            exit(1);
+        }
+        
+        // replace standard output with file output
+        dup2(file,1);
+        close(file);
+        
+
+        // output has been redirected towards the file
+        // all future output from the left will now be sent to the file
+        Parse * leftCommand = new Parse(l);
+        leftCommand->processText();
+        
+        // replace the standard output
+        dup2(saveStdOut, 1);
+        
+
+        
+        int errCode = errno;
+        exit(errCode);
+        exit(EXIT_SUCCESS);
+        
+    } 
+    // parent process.
+    else if(pid > 0) { 
+        
+        
+        // Wait for the child process to exit
+        // below is same as waitpid(-1, &status, 0);
+        // wait(&returnStatus);
+        if ((pid = wait(&returnStatus)) == -1) {
+           perror("wait error");
+        }
+        else {
+            
+            // Program succeeded
+            if ((WIFEXITED(returnStatus)) && (WEXITSTATUS(returnStatus) == 0)) {
+                //setCheck() here and below
+                setCheck(true);
+                
+                // set flag to skip right command
+                run_permission = false;
+                Parse * rightCommand = new Parse(r);
+                rightCommand->processText();
+                
+                // replace the standard input
+                // dup2(saveStdIn, 0);
+                
+                                
+            }
+            // Program failed
+            else { 
+                setCheck(false);
+                //perror("execvp failed");
+            }
+        }
+            
+    } 
+    // Error with fork() calls
+    else {
+        perror("fork call failed");
+        cout << "There was an error with the fork() sys() call." << endl;
+        exit(EXIT_FAILURE); 
+    } 
+    
+    
+}
+
+
 
 
     

@@ -34,6 +34,8 @@
 #include <stdlib.h>
 #include <cstdlib>
 
+#include <fcntl.h>
+
 // #include <sys/types.h>
 #include <sys/stat.h>
 // #include <unistd.h>
@@ -64,6 +66,7 @@ class Parse : public Base {
         Parse();
         ~Parse();
         Parse( string input );
+        //string getFileName(string &file);
         void processText();
         bool pathFinder(const char* path, char flg);
     
@@ -149,6 +152,64 @@ class And : public Base {
         string l;
         string r;
 };
+
+
+class Pipe : public Base {
+    
+    public:
+    
+        Pipe();
+        ~Pipe();
+        Pipe(string left, string right);
+        void execute();
+        
+    protected:
+        
+        string l;
+        string r;
+        char * argmL[1024];
+        char * argmR[1024];
+};
+
+//////////////////////////////////////////////////////////////////
+
+class Redirect1 : public Base {
+    
+    public:
+    
+        Redirect1();
+        ~Redirect1();
+        Redirect1(string left, string right);
+        void execute();
+        
+    protected:
+        
+        string l;
+        string r;
+        char * argmL[1024];
+        char * argmR[1024];
+};
+
+//////////////////////////////////////////////////////////////////
+
+class Redirect2 : public Base {
+    
+    public:
+    
+        Redirect2();
+        ~Redirect2();
+        Redirect2(string left, string right);
+        void execute();
+        
+    protected:
+        
+        string l;
+        string r;
+        char * argmL[1024];
+        char * argmR[1024];
+};
+
+//////////////////////////////////////////////////////////////////
 
 
 #endif

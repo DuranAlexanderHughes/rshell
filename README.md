@@ -1,6 +1,6 @@
 <h1>
 <p>CS100</p>
-<p>Assignment 2</p>
+<p>Assignment 4</p>
 <p>Jason Zellmer</p>
 <p>Duran Hughes</p>
 </h1>
@@ -23,10 +23,12 @@ Files
 Command Line Arguments
 ----------------------
 </h2>
+g++ main.cpp Base.cpp
 <ol>
-<li>g++ main.cpp Base.cpp</li>
-
+<li>cd rshell</li>
 <li>make clean; make</li>
+<li>cd bin</li>
+<li>./rshell</li>
 </ol>
 
 <h2>
@@ -36,10 +38,11 @@ Summary / Intro
 </h2>
 
 When executed, this program simulate the basic commands of the bash terminal 
-using the fork(), execvp(), and wait()/waitpid() sys() calls in C++. In 
-addition, it is able to recognize precedence operations created by using
+using the fork(), execvp(), wait()/waitpid(), dup(), and dup2() sys() calls in 
+C++. In addition, it is able to recognize precedence operations created by using
 parentheses in command arguments. It also implements the 'test' function that
-is typically utilized in the terminal to verify if path file/directories exist. 
+is typically utilized in the terminal to verify if path file/directories exist.
+Finally, it implements the redirection/pipe commands '<', '>', '>>', and '|'.
 It begins by prompting the user with the usual '$' prompt to enter commands. 
 It then takes in arguments from the user and exectutes them in a left-to-right 
 fashion.
@@ -53,8 +56,8 @@ Class Specific Details
 -------------------------
 </h2>
 
-There are six classes that are implemented in this program, a base class 
-named 'Base', a 'Parse' and 'Cmd' class and three connector classes, giving 
+There are multiple classes that are implemented in this program, a base class 
+named 'Base', a 'Parse' and 'Cmd' class and multiple connector classes, giving 
 a listing of classes as: 
 <ul>
 <li>Base</li>
@@ -63,6 +66,9 @@ a listing of classes as:
 <li>Both</li>
 <li>Or</li>
 <li>And</li>
+<li>Pipe</li>
+<li>Redirect1</li>
+<li>Redirect2</li>
 </ul>
 
 <h3>Base:</h3>
@@ -81,8 +87,8 @@ open '(' and closed ')' parentheses. This is done not only to be able to
 recognize sub-arguments within a string, but also as a check to verify that
 arguments are being passed/entered correctly. It then checks if the string has 
 a ';' on the very end.  If it does, it is removed from the string.  Next it 
-looks for the last connector (;, ||, &&) in the string.  When found it saves 
-the connector's index and it's type (if it's ;, ||, &&).  It uses this 
+looks for the last connector (;, ||, &&, >, >>) in the string.  When found it saves 
+the connector's index and it's type (if it's ;, ||, &&, >, >>).  It uses this 
 information to then split the string into two strings called leftText and 
 rightText. LeftText contains everything to the left of the connector while 
 rightText contains everything to it's right. 'processText' then creates a point 
@@ -110,7 +116,10 @@ false, which is the opposite of what is required in c++. This is because the
 'test' command in linux works by using the sys calls described elsewhere in 
 this file, which require a 0 when an operation executed without error and a 
 non-zero when an error occurred. While in c++, to verify that a path exists
-using created 'test' function, true is 1 and false is 0.
+using created 'test' function, true is 1 and false is 0.  Additionally parse 
+will check single commands to see if they contain the input redirection symbol,
+'<'.  If it finds '<' it strips it from command's string before executing and 
+in that fashion it correctly handles input redirection.
 
 <h3>Cmd:</h3>
 The Cmd class has two functions, 'tokenize' and 'execute'. Tokenize is
@@ -124,7 +133,7 @@ and then telling the parent process to wait for the child process to
 terminate until moving to the parent process. Inside the parent process, 
 there is an if/else statement that is used to set the 'value' from the 
 Base class that the connectors utilize in determine if they should 
-execute one or both of their childre.
+execute one or both of their children.
 
 <h3>Connector Classes:</h3>
 The connector classes all take in two arguments. They each assume the left
@@ -144,6 +153,29 @@ only if the left child did not execute correctly.
 The Both class has a left and a right child and always executes both the 
 left and right children.
 
+<h3>Pipe:</h3>
+The pipe class has a left and a right child and always executes both the
+left and right children.  However before it excutes either it first forks.
+In the child process it redirects output destined for the terminal to one end
+of our pipe.  Then it executes the right command and exits the child process.
+In the parent process it redirects input from the pipe to the right command
+before calling execute.  In this fashion input from the left child is piped
+to the right child.
+
+<h3>Redirect1 ('>'):</h3>
+This class has a left and a right child and takes the left child and redirects
+the output of the left child to the file name in the right child, overwriting
+the contents of the file if the file already exists, creating the file if it
+does not exist.
+
+<h3>Redirect2 ('>>'):</h3>
+This class has a left and a right child and takes the left child and redirects
+the output of the left child to the file name in the right child, appending
+the contents of the file if the file already exists, creating the file if it
+does not exist.
+
+
+
 <h2>
 -------------------------
 Bugs
@@ -151,12 +183,20 @@ Bugs
 </h2>
 
 <ul>
-<li>The code runs the test command perfectly in Cloud9, accessing every path
-that it is asked and returning true for valid paths. However, there seems to
-be a slight glitch when run in hammer. The first time a path is run, it often
-returns false for a true path on the first attempt. Then each subsequent 
-attempt, it correctly returns true. We are not sure whey this would be the
-case, since it is implementing it correctly in Cloud9 environment.</li>
+
+<li>There was an issue at some point with the two redirection commands '>' and 
+'>>' not talking to each other. It seems to be fixed now, but just the issue 
+was, if a file was created using the '>' command, then trying to append
+to that file using the '>>' command would result in creating a new file by the 
+same name. If a file was created using the 'touch' command, it could be appended
+using the '>>' command correctly. However, if the '>' command was then called
+on the same file, a new file would be created with the same name. Again, this
+issue seems to be resolved, but was an issue prior final modifications.</li>
+From Assignment 3 and prior:
+<li>There is still an issue running the 'test' commands as we were not able 
+to correct it from Assignment 3, so any commands using 'test' may not perform
+correctly</li>
+From Assignment 2 and prior:
 <li>The array of command and arguments used in the tokenize function is hard 
  coded to be of lenght 1024, and is not dynamically allocated. This was 
  done with the idea that the user will most likely not need an array of 
@@ -173,13 +213,4 @@ case, since it is implementing it correctly in Cloud9 environment.</li>
  of perror that will notify the user when a execvp has failed to run.  Our
  version outputs "bash: -command-: command not found" to the terminal.</li>
  
-<li>The code was tested on the following commands:
-<ul>
-<li>ls</li>
-<li>mkdir</li>
-<li>echo</li>
-<li>rm</li>
-<li>rmdir</li>
-</ul>
-</li>
 </ul>
